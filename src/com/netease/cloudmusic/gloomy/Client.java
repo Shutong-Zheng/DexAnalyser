@@ -51,6 +51,5 @@ public class Client {
         List<String> dexHex = translator.getHexCode("classes.dex");
         DexTranslator dexTranslator = new DexTranslator(dexHex);
         //dexTranslator.initClassList();
-
     }
 }

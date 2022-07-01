@@ -41,12 +41,15 @@ public class AnnotationUtil {
         switch (visibility){
             case VISIBILITY_BUILD:{
                 System.out.println("编译时注解");
+                break;
             }
             case VISIBILITY_RUNTIME:{
                 System.out.println("运行时注解");
+                break;
             }
             case VISIBILITY_SYSTEM:{
                 System.out.println("运行时系统注解");
+                break;
             }
             default:{
                 throw new RuntimeException("不存在该可见类型");
@@ -99,14 +102,6 @@ public class AnnotationUtil {
                 break;
             }
             case VALUE_LONG -> {
-//                long data = parseDataUtil.getData(mDexHex, off, size);
-//                long value;
-//                if((data & 0x800000000000000000) == 1){
-//                    value = -(data & 0x7fffffff);
-//                }
-//                value = data & 0x7fffffff;
-//                System.out.println(value);
-//                break;
                 System.out.println("long");
                 break;
             }

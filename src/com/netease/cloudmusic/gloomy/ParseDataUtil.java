@@ -23,9 +23,7 @@ public class ParseDataUtil {
             }
             sb.append(str);
         }
-        //System.out.println(sb);
         int ret = Integer.parseInt(sb.toString(), 16);
-        //System.out.println(ret);
         return ret;
     }
 
@@ -55,7 +53,6 @@ public class ParseDataUtil {
             }
             sb.append(s);  //转换为2进制存储
         }
-        //System.out.println(sb);
         int res = Integer.parseInt(sb.toString(), 2);
         ret[0] = res;
         ret[1] = offset + count + 1;    //下一个起始位置

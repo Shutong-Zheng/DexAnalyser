@@ -50,7 +50,6 @@ public class DexTranslator {
         classDefsOff = parseDataUtil.getData(mDexHex,25 * 4, 4);
         dataSize = parseDataUtil.getData(mDexHex,26 * 4, 4);
         dataOff = parseDataUtil.getData(mDexHex,27 * 4, 4);
-        System.out.println("dataOff: " + dataOff);
         //根据偏移量和基址整理一下用到了哪些字符串
         initStringList();
         initTypeList();
@@ -72,11 +71,11 @@ public class DexTranslator {
              //先拿起始地址
             StringBuilder sb = new StringBuilder();
             int index = parseDataUtil.getData(mDexHex, pointer, 4);
-            int len = Integer.parseInt(mDexHex.get(index), 16);     //这个是字符串的大小
-            //System.out.println(len);
+            int[] ret = parseDataUtil.parseUleb128(mDexHex, index);
+            //int len = Integer.parseInt(mDexHex.get(index), 16);     //这个是字符串的大小
+            int len = ret[0];
             for(int i = 0;i < len;i++){
-                sb.append((char)Integer.parseInt(mDexHex.get(index + i + 1), 16));
-                //System.out.println(mDexHex.get(index + i + 1));
+                sb.append((char)Integer.parseInt(mDexHex.get(ret[1] + i), 16));
             }
             //System.out.println(sb);
             stringList.add(sb.toString());
@@ -109,7 +108,6 @@ public class DexTranslator {
             int shortlyIdx = parseDataUtil.getData(mDexHex, pointer, 4);
             //System.out.println(stringList.get(shortlyIdx));
             int returnTypeIdx = parseDataUtil.getData(mDexHex, pointer + 4, 4);
-            //System.out.println(typeList.get(returnTypeIdx));
             sb.append(typeList.get(returnTypeIdx) + "(");
             int dexTypeListIdx = parseDataUtil.getData(mDexHex, pointer + 8, 4);     //参数存储地址
             //如果指向了0x0000表示没有参数
@@ -133,8 +131,8 @@ public class DexTranslator {
                 typeSize--;
             }
             sb.append(")");
-            protoList.add(sb.toString());
             //System.out.println(sb);
+            protoList.add(sb.toString());
             pointer += 12;
             size--;
         }
@@ -155,7 +153,6 @@ public class DexTranslator {
             sb.append(".");
             sb.append(stringList.get(nameIdx));
             fieldList.add(sb.toString());
-            //System.out.println(sb);
             pointer += 8;
             size--;
         }
@@ -172,7 +169,6 @@ public class DexTranslator {
             int nameIdx = parseDataUtil.getData(mDexHex, pointer + 4, 4);
             sb.append(protoList.get(protoIdx));
             sb.insert(sb.indexOf("("), " " + typeList.get(classIdx) + "." + stringList.get(nameIdx));
-            //System.out.println(sb);
             methodList.add(sb.toString());
             pointer += 8;
             size--;
@@ -181,23 +177,20 @@ public class DexTranslator {
 
     public void initClassList(){
         classList = new ArrayList<>();
-        int size = classDefsSize;
+        int size = 1;
         int pointer = classDefsOff;
 
         while(size != 0){
-            System.out.println("=================================");
-            System.out.println(pointer);
+            System.out.println("=========================================================================================");
             StringBuilder sb = new StringBuilder();
             int classIdx = parseDataUtil.getData(mDexHex, pointer, 4);
             //System.out.println("classIdx : "+classIdx+"");
             String className = typeList.get(classIdx);
+            System.out.println("Class Name：" + className);
             int accessFlags = parseDataUtil.getData(mDexHex, pointer + 4, 4);
-            //System.out.println("accessFlags : "+accessFlags+"");
             int superclassIdx = parseDataUtil.getData(mDexHex, pointer + 8, 4);    //父类的类型
-            //System.out.println("superclassIdx : "+superclassIdx+"");
             String superClassName = typeList.get(superclassIdx);
             int interfacesOff = parseDataUtil.getData(mDexHex, pointer + 12, 4);
-            //System.out.println("interfacesOff : "+interfacesOff+"");
             if(interfacesOff != 0){
                 int interfaceSize = parseDataUtil.getData(mDexHex, interfacesOff, 4);
                 interfacesOff += 4;
@@ -209,77 +202,61 @@ public class DexTranslator {
                 }
             }
             int sourceFileIdx = parseDataUtil.getData(mDexHex, pointer + 16, 4);   //文件名
-            //System.out.println("sourceFileIdx : "+sourceFileIdx+"");
             String sourceFileName = stringList.get(sourceFileIdx);
+            //System.out.println(sourceFileName);
             int annotationsOff = parseDataUtil.getData(mDexHex, pointer + 20, 4);
-            System.out.println("annotationsOff : "+annotationsOff+"");
+            System.out.println("类注解：");
             if(annotationsOff != 0){
-                System.out.println("存在注解！");
                 //这里还没有看！！！
                 int classAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff, 4);       //起始地址 offset to DexAnnotationSetItem
-                System.out.println("classAnnotationsOff："+classAnnotationsOff+"");
                 if (classAnnotationsOff != 0){
-                    int annotationSize = parseDataUtil.getData(mDexHex, classAnnotationsOff, 4);
-                    System.out.println("总共有 "+annotationSize+" 个注解");
-                    classAnnotationsOff += 4;
-                    for (int i = 0;i < annotationSize;i++){
-                        System.out.println("注解 "+i+" 信息如下：");
-                        int off = parseDataUtil.getData(mDexHex, classAnnotationsOff, 4);      //AnnotationItem的偏移量
-                        System.out.println("off: "+off+"");
-                        int visibility = parseDataUtil.getData(mDexHex, off, 1);
-                        System.out.println("visibility: " + visibility);            //注解的可见性
-
-                        int[]ret = parseDataUtil.parseUleb128(mDexHex, off + 1);
-                        System.out.println("注解名字：" + typeList.get(ret[0]));
-
-                        ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
-                        int ss = ret[0];
-                        System.out.println("size: " + ss);      //参数个数
-                        for(int j = 0;j < ss;j++){
-                            ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
-                            System.out.print("name : " + stringList.get(ret[0]) + "  ->  ");
-                            int data = parseDataUtil.getData(mDexHex, ret[1], 1);
-                            //System.out.println("data: "+data+"");
-                            int ff = annotationUtil.parseEncodedValue(mDexHex, data, ret[1] + 1);
-                            ret[1] += ff + 1;
-                        }
-                        classAnnotationsOff += 4;
-                    }
+                    getAnnotationDetail(classAnnotationsOff);
                 }
-
+                System.out.println();
 
                 int fieldsSize = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
-                System.out.println("fieldsSize："+fieldsSize+"");
                 int methodsSize = parseDataUtil.getData(mDexHex, annotationsOff + 8, 4);
-                System.out.println("methodsSize："+methodsSize+"");
                 int parametersSize = parseDataUtil.getData(mDexHex, annotationsOff + 12, 4);
-                System.out.println("parametersSize："+parametersSize+"");
-                annotationsOff += 16;
-//                for(int i = 0;i < fieldsSize;i++){
-//                    int fieldIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
-//                    System.out.println(fieldList.get(fieldIdx));
-//                    int fieldAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
-//                    //classAnnotationsOff += 8;
-//                    annotationsOff += 8;
-//                }
-//
-//                for(int i = 0;i < methodsSize;i++){
-//                    int methodIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
-//                    System.out.println(fieldList.get(methodIdx));
-//                    int methodAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
-//                    annotationsOff += 8;
-//                }
-//
-//                for(int i = 0;i < parametersSize;i++){
-//                    int methodIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
-//                    System.out.println(fieldList.get(methodIdx));
-//                    int paramAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
-//                    annotationsOff += 8;
-//                }
 
+
+                annotationsOff += 16;
+                System.out.println("成员变量注解：");
+                for(int i = 0;i < fieldsSize;i++){
+                    int fieldIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
+                    System.out.println(fieldList.get(fieldIdx));
+                    int fieldAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
+                    if (fieldAnnotationsOff != 0){
+                        getAnnotationDetail(fieldAnnotationsOff);
+                    }
+                    annotationsOff += 8;
+                }
+                System.out.println();
+
+                System.out.println("方法注解：");
+                for(int i = 0;i < methodsSize;i++){
+                    int methodIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
+                    System.out.println(methodList.get(methodIdx));
+                    int methodAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
+                    if(methodAnnotationsOff != 0){
+                        getAnnotationDetail(methodAnnotationsOff);
+                    }
+                    annotationsOff += 8;
+                }
+                System.out.println();
+
+                System.out.println("方法参数注解：");
+                for(int i = 0;i < parametersSize;i++){
+                    int methodIdx = parseDataUtil.getData(mDexHex, annotationsOff, 4);
+                    System.out.println(methodList.get(methodIdx));
+                    int paramAnnotationsOff = parseDataUtil.getData(mDexHex, annotationsOff + 4, 4);
+                    if(paramAnnotationsOff != 0){
+                        getAnnotationDetail(paramAnnotationsOff);
+                    }
+                    annotationsOff += 8;
+                }
+                System.out.println();
             }
             int classDataOff = parseDataUtil.getData(mDexHex, pointer + 24, 4);
-            //System.out.println(classDataOff);
             //有可能是空的！！！类里面什么都没有
             if (classDataOff != 0){
                 //后面的数据结构全部都是uleb128类型的
@@ -293,53 +270,57 @@ public class DexTranslator {
                 ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                 int virtualMethodsSize = ret[0];    //虚方法个数
 
-                System.out.println("静态变量个数 " + staticFieldsSize);
-                System.out.println("实例变量个数 " + instanceFieldsSize);
-                System.out.println("直接方法个数 " + directMethodsSize);
-                System.out.println("虚方法个数 " + virtualMethodsSize);
-
                 //获取静态变量
+                System.out.println("静态变量：");
+                int fieldIdx = 0;
                 for(int i = 0;i < staticFieldsSize;i++){
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     //System.out.println("ret: "+ret[0]+"  "+ret[1]+"");
-                    int fieldIdx = ret[0];
-                    System.out.println("静态变量" + fieldList.get(fieldIdx));
+                    if(i == 0){
+                        fieldIdx = ret[0];
+                    } else {
+                        fieldIdx += ret[0];
+                    }
+                    System.out.println(fieldList.get(fieldIdx));
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     int fieldFlags = ret[0];
                 }
+                System.out.println();
 
                 //获取实例变量
+                System.out.println("实例变量：");
                 for(int i = 0;i < instanceFieldsSize;i++){
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     //System.out.println("ret: "+ret[0]+"  "+ret[1]+"");
-                    int fieldIdx = ret[0];
-                    System.out.println("实例变量" + fieldList.get(fieldIdx));
+                    if(i == 0){
+                        fieldIdx = ret[0];
+                    } else {
+                        fieldIdx += ret[0];
+                    }
+                    System.out.println(fieldList.get(fieldIdx));
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     int fieldFlags = ret[0];
                 }
+                System.out.println();
 
+                System.out.println("Methods：");
                 //获取直接方法
+                int methodIdx = 0;
                 for(int i = 0;i < directMethodsSize;i++){
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
-                    int methodIdx = ret[0];
+                    if(i == 0){
+                        methodIdx = ret[0];
+                    } else {
+                        methodIdx += ret[0];
+                    }
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     int methodFlags = ret[0];
-                    System.out.println("method：" + methodList.get(methodIdx));
+                    System.out.println("Method Name：" + methodList.get(methodIdx));
 
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     int codeOff = ret[0];
-
-                    /*struct DexCode {
-                        u2 registersSize;   //使用寄存器个数
-                        u2 insSize;         //参数个数
-                        u2 outsSize;        //调用其他方法时使用的寄存器个数
-                        u2 triesSize;       //try/catch个数
-                        u4 debugInfoOff;    //指向调试信息的偏移
-                        u4 insnsSize;       //指令集个数，以2字节为单位
-                        u2 insns[1];        //指令集
-                    };*/
                     if (codeOff == 0){
-                        continue;
+                        continue;   //如果此方法是 abstract 或 native，则该值为 0
                     }
 
                     int registersSize = parseDataUtil.getData(mDexHex, codeOff, 2);
@@ -358,18 +339,31 @@ public class DexTranslator {
                     System.out.println("指令集为：");
                     for (int j = 0;j < insnsSize;j++){
                         insns[j] = parseDataUtil.getData(mDexHex, codeOff + 16 + 2 * j, 2);
-                        //System.out.println(Integer.toHexString(insns[j]));
+                        String op = Integer.toHexString(insns[j]);
+                        while (op.length() < 4){
+                            op = "0" + op;
+                        }
+                        System.out.println("    " + op);
                     }
+                    System.out.println();
+
                     /**
-                     * 由于后续需要和Android官方文档对照着阅读，所以这里先不写啦
+                     * Todo 由于后续需要和Android官方文档对照着解析，所以这里先不写啦
+                     *      https://source.android.com/devices/tech/dalvik/dalvik-bytecode#instructions
+                     *      https://source.android.com/devices/tech/dalvik/instruction-formats
                      * */
 
+
                 }
-                System.out.println("===============virtual method===============");
+                System.out.println("-----------------------virtual method-----------------------");
                 //获取虚方法
                 for(int i = 0;i < virtualMethodsSize;i++){
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
-                    int methodIdx = ret[0];
+                    if(i == 0){
+                        methodIdx = ret[0];
+                    } else {
+                        methodIdx += ret[0];
+                    }
                     ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
                     int methodFlags = ret[0];
                     System.out.println("method：" + methodList.get(methodIdx));
@@ -395,7 +389,11 @@ public class DexTranslator {
                     System.out.println("指令集为：");
                     for (int j = 0;j < insnsSize;j++){
                         insns[j] = parseDataUtil.getData(mDexHex, codeOff + 16 + 2 * j, 2);
-                        //System.out.println(Integer.toHexString(insns[j]));
+                        String op = Integer.toHexString(insns[j]);
+                        while (op.length() < 4){
+                            op = "0" + op;
+                        }
+                        System.out.println("    " + op);
                     }
                 }
             }
@@ -405,24 +403,32 @@ public class DexTranslator {
         }
     }
 
+    public void getAnnotationDetail(int classAnnotationsOff){
+        int annotationSize = parseDataUtil.getData(mDexHex, classAnnotationsOff, 4);
+        //System.out.println("总共有 "+annotationSize+" 个注解");
+        for (int i = 0;i < annotationSize;i++){
+            System.out.println("注解 "+i+" 信息如下：");
+            classAnnotationsOff += 4;
+            int off = parseDataUtil.getData(mDexHex, classAnnotationsOff, 4);      //AnnotationItem的偏移量
+            //System.out.println("off: "+off+"");
+            int visibility = parseDataUtil.getData(mDexHex, off, 1);
+            annotationUtil.analyseVisibility(visibility);
+            //System.out.println("visibility: " + visibility);            //注解的可见性
 
+            int[]ret = parseDataUtil.parseUleb128(mDexHex, off + 1);
+            System.out.println("注解名字：" + typeList.get(ret[0]));
 
-
-
-    /*
-        struct DexClassData{
-            DexClassDataHeader	 header;		    指定字段与方法的个数
-            DexField* 			staticFields;		静态字段，DexField结构
-            DexField*			instanceFields；	实例字段，DexField结构
-            DexMethod*			directMethods;		直接方法，DexMethod结构
-            DexMethod*			virtualMethods;		虚方法，DexMethod结构
+            ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
+            int ss = ret[0];
+            //System.out.println("size: " + ss);      //参数个数
+            for(int j = 0;j < ss;j++){
+                ret = parseDataUtil.parseUleb128(mDexHex, ret[1]);
+                System.out.print("name : " + stringList.get(ret[0]) + "  ->  ");
+                int data = parseDataUtil.getData(mDexHex, ret[1], 1);
+                //System.out.println("data: "+data+"");
+                int ff = annotationUtil.parseEncodedValue(mDexHex, data, ret[1] + 1);
+                ret[1] += ff + 1;
+            }
         }
-    */
-
-
-
-
-    public void getMethods(){
-
     }
 }
